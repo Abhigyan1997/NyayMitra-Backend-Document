@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>General Affidavit (India) - Official Template</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            line-height: 1.8;
+            margin: 0 auto;
+            max-width: 800px;
+            padding: 40px;
+            background: #fff;
+            border: 1px solid #ddd;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 22px;
+            text-decoration: underline;
+            margin-bottom: 30px;
+        }
+
+        .legal-notice {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        .form-field {
+            margin-bottom: 15px;
+        }
+
+        input[type="text"],
+        textarea {
+            border: 1px solid #ddd;
+            padding: 5px;
+            font-family: 'Times New Roman', serif;
+            font-size: 16px;
+        }
+
+        input[type="text"] {
+            border-top: none;
+            border-left: none;
+            border-right: none;
+            border-bottom: 1px solid #000;
+            background: transparent;
+            min-width: 200px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .notary-section {
+            margin-top: 60px;
+            border-top: 1px solid #000;
+            padding-top: 20px;
+        }
+
+        .signature-line {
+            display: inline-block;
+            width: 300px;
+            border-top: 1px solid #000;
+            margin: 40px 0 10px;
+        }
+
+        .statement-area {
+            margin: 30px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            background: #f9f9f9;
+        }
+
+        .form-row {
+            display: flex;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .form-label {
+            min-width: 150px;
+            margin-right: 10px;
+        }
+
+        .print-btn {
+            display: block;
+            margin: 30px auto;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        @media print {
+            .print-btn {
+                display: none;
+            }
+
+            input[type="text"],
+            textarea {
+                border: none;
+                background: transparent;
+            }
+
+            textarea {
+                white-space: pre-wrap;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>AFFIDAVIT</h1>
+    <div class="legal-notice">
+        (Drafted under guidance of Mr.BHARAT RAJAK, Advocate, Bhagalpur Bar Association, Enrollment No. 1114/2000)
+    </div>
+
+    <div class="form-row">
+        <div class="form-label">Before the Notary/Oath Commissioner:</div>
+        <input type="text" id="notary-city" placeholder="District/City">
+    </div>
+    <div class="form-row">
+        <div class="form-label">State of:</div>
+        <input type="text" id="state" placeholder="Bihar"> ss.
+    </div>
+
+    <div class="form-field" style="margin: 20px 0;">
+        I, <input type="text" id="full-name" placeholder="Full Legal Name" style="width: 300px;">, son/daughter/wife of
+        <input type="text" id="father-name" placeholder="Father's/Husband's Name">, aged about <input type="text"
+            id="age" placeholder="Age" style="width: 40px;"> years, resident of <input type="text" id="address"
+            placeholder="Full Address">, do hereby solemnly
+        affirm and declare under oath:
+    </div>
+
+    <ol>
+        <li>That I am a major Indian citizen and competent to swear this affidavit.</li>
+        <li>That the contents of this affidavit are true to my personal knowledge and belief.</li>
+        <li>That I am fully aware that making false statements in an affidavit is punishable under <strong>Section 191,
+                193 IPC</strong> and <strong>Section 8 of the Oaths Act, 1969</strong>.</li>
+    </ol>
+
+    <div class="statement-area">
+        <textarea id="affidavit-content"
+            placeholder="State facts clearly in numbered paragraphs with exact dates, places, and supporting details. Each paragraph should begin with 'That...'"></textarea>
+    </div>
+
+    <p><strong>DEPONENT VERIFICATION:</strong></p>
+    <p>I, the deponent, hereby verify that the contents of this affidavit are true and correct to my knowledge and
+        belief. No part of it is false and nothing material has been concealed.</p>
+
+    <div class="signature-line"></div>
+    <div class="form-row">
+        <div class="form-label">Deponent's Full Name:</div>
+        <input type="text" id="deponent-name" placeholder="Full Legal Name">
+    </div>
+    <div class="form-row">
+        <div class="form-label">Aadhaar No./ID Proof:</div>
+        <input type="text" id="id-proof" placeholder="Aadhaar/Passport/Driving License">
+    </div>
+
+    <div class="notary-section">
+        <p>Sworn and subscribed before me on this
+            <input type="text" id="sworn-day" placeholder="Day" style="width: 30px;"> day of
+            <input type="text" id="sworn-month" placeholder="Month" style="width: 100px;">, 20
+            <input type="text" id="sworn-year" placeholder="Year" style="width: 40px;"> at <input type="text"
+                id="sworn-place" placeholder="Place">.
+        </p>
+
+        <div class="signature-line"></div>
+        <div class="form-row">
+            <div class="form-label">Notary/Oath Commissioner:</div>
+            <input type="text" id="notary-name" placeholder="Official Name">
+        </div>
+        <div class="form-row">
+            <div class="form-label">Registration No.:</div>
+            <input type="text" id="notary-reg" placeholder="Notary Registration Number">
+        </div>
+        <div class="form-row">
+            <div class="form-label">Seal & Stamp:</div>
+            <input type="text" id="notary-seal" placeholder="[Notary Seal Area]" style="width: 200px;">
+        </div>
+        <div class="form-row">
+            <div class="form-label">Valid Until:</div>
+            <input type="text" id="notary-valid" placeholder="Commission Expiry Date">
+        </div>
+    </div>
+
+    <div class="legal-notice" style="text-align: left; margin-top: 30px;">
+        <strong>Note:</strong> This affidavit must be executed on non-judicial stamp paper of appropriate value as per
+        state laws (typically ₹10-100 in Bihar). For court affidavits, use court fee stamp.
+    </div>
+
+    <button class="print-btn" onclick="window.print()">Print Affidavit</button>
+
+    <script>
+        // Auto-fill current date
+        document.addEventListener('DOMContentLoaded', function () {
+            const today = new Date();
+            document.getElementById('sworn-day').value = today.getDate();
+            document.getElementById('sworn-year').value = today.getFullYear().toString().substr(-2);
+
+            const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            document.getElementById('sworn-month').value = months[today.getMonth()];
+
+            // Auto-copy name fields
+            document.getElementById('full-name').addEventListener('input', function () {
+                document.getElementById('deponent-name').value = this.value;
+            });
+
+            // Auto-copy place fields
+            document.getElementById('notary-city').addEventListener('input', function () {
+                document.getElementById('sworn-place').value = this.value;
+            });
+        });
+    </script>
+</body>
+
+</html>
