@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const controller = require('../controllers/documentController');
 const {
   generateAIAffidavit,
   createNotaryBooking,
@@ -45,5 +46,16 @@ router.get('/', getAllOrders); // Admin
 router.get('/:orderId', getOrderById); // Admin/User
 router.get('/user/:userId', getOrdersByUserId); // User
 router.patch('/status/:orderId', updateOrderStatus); // Admin or webhook
+
+
+
+
+router.post('/priority-booking', controller.validatePriorityBooking, controller.createPriorityBooking);
+router.get('/priority-booking/:id', controller.getPriorityBookingById);
+router.patch('/priority-booking/:id/status', controller.updatePriorityBookingStatus);
+router.get('/priority-booking/user/:userId', controller.getUserPriorityBookings);
+router.post('/priority-booking/webhook/payment-confirmation', controller.handlePaymentWebhook);
+
+
 
 module.exports = router;

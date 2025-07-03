@@ -1,6 +1,7 @@
 const ServiceOrder = require('../models/ServiceOrder');
 const sendEmail = require('../utils/sendEmail');
 const razorpay = require('../config/razorpay');
+const { v4: uuidv4 } = require('uuid');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
@@ -286,31 +287,175 @@ exports.uploadNotaryScan = async (req, res) => {
 };
 
 // 5️⃣ Priority Booking
+
+
+// Middleware validation (exportable if needed elsewhere)
+exports.validatePriorityBooking = (req, res, next) => {
+  const requiredFields = ['userId', 'userEmail', 'name', 'phone', 'issueType', 'preferredDate', 'preferredTime', 'description', 'urgency'];
+  const missing = requiredFields.filter(f => !req.body[f]);
+  if (missing.length > 0) return res.status(400).json({ success: false, message: `Missing fields: ${missing.join(', ')}` });
+
+  const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+  if (!emailRegex.test(req.body.userEmail)) return res.status(400).json({ success: false, message: 'Invalid email' });
+
+  const phoneRegex = /^[6-9]\d{9}$/;
+  if (!phoneRegex.test(req.body.phone.replace(/\D/g, ''))) return res.status(400).json({ success: false, message: 'Invalid phone number' });
+
+  next();
+};
+
+// Create booking
 exports.createPriorityBooking = async (req, res) => {
   try {
-    const { formData, price, razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
-    const userId = req.user.id;
-    const userEmail = req.user.email;
+    const {
+      userId, userEmail, name, phone, issueType,
+      preferredDate, preferredTime, description,
+      urgency, ipAddress, userAgent, metadata
+    } = req.body;
 
-    if (!verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
-      return res.status(400).json({ error: 'Invalid payment signature' });
-    }
+    const basePrice = 99, priorityFee = 99;
+    const totalAmount = basePrice + priorityFee;
 
-    const newOrder = await ServiceOrder.create({
+    const newOrder = new ServiceOrder({
       userId,
       userEmail,
-      serviceType: 'priority-booking',
-      formData,
-      price,
-      status: 'completed'
+      serviceType: 'legal-consultation',
+      serviceName: 'Priority Legal Consultation',
+      documentType: 'other',
+      price: basePrice,
+      discountApplied: 0,
+      finalAmount: totalAmount,
+      status: 'pending',
+      statusHistory: [{
+        status: 'pending',
+        changedAt: new Date(),
+        reason: 'Order created'
+      }],
+      deliveryMethod: 'email',
+      deliveryStatus: 'pending',
+      documentDescription: description,
+      specialInstructions: `Urgency: ${urgency}\nIssue Type: ${issueType}\nPreferred Time: ${preferredDate} ${preferredTime}`,
+      metadata: {
+        ...metadata,
+        priorityBooking: true,
+        clientName: name,
+        clientPhone: phone,
+        issueType,
+        preferredDate,
+        preferredTime,
+        urgency
+      },
+      ipAddress,
+      userAgent
     });
 
-    await sendEmail(userEmail, 'Priority Booking Confirmed', 'Your same-day consultation is confirmed.');
-    res.status(201).json({ message: 'Priority booking done', order: newOrder });
+    const savedOrder = await newOrder.save();
+    const razorpayOrderId = `order_${uuidv4()}`;
+
+    res.status(201).json({
+      success: true,
+      message: 'Priority booking created successfully',
+      data: {
+        order: savedOrder,
+        payment: {
+          amount: totalAmount,
+          currency: 'INR',
+          razorpayOrderId,
+          key: process.env.RAZORPAY_KEY_ID
+        }
+      }
+    });
+
   } catch (err) {
-    res.status(500).json({ error: 'Something went wrong' });
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Failed to create booking', error: err.message });
   }
 };
+
+// Get booking by ID
+exports.getPriorityBookingById = async (req, res) => {
+  try {
+    const order = await ServiceOrder.findOne({ _id: req.params.id, serviceName: 'Priority Legal Consultation' });
+    if (!order) return res.status(404).json({ success: false, message: 'Booking not found' });
+    res.json({ success: true, data: order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching booking', error: err.message });
+  }
+};
+
+// Update status
+exports.updatePriorityBookingStatus = async (req, res) => {
+  try {
+    const { status, reason } = req.body;
+    const valid = ['pending', 'processing', 'completed', 'failed', 'refunded'];
+    if (!valid.includes(status)) return res.status(400).json({ success: false, message: 'Invalid status' });
+
+    const order = await ServiceOrder.findById(req.params.id);
+    if (!order || order.serviceName !== 'Priority Legal Consultation') {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    order.updateStatus(status, reason || 'Updated via API');
+    await order.save();
+
+    res.json({ success: true, message: 'Status updated', data: order });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error updating status', error: err.message });
+  }
+};
+
+// Get all bookings by user
+exports.getUserPriorityBookings = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const [orders, total] = await Promise.all([
+      ServiceOrder.find({ userId: req.params.userId, serviceName: 'Priority Legal Consultation' })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit)),
+      ServiceOrder.countDocuments({ userId: req.params.userId, serviceName: 'Priority Legal Consultation' })
+    ]);
+
+    res.json({
+      success: true,
+      data: orders,
+      pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / limit) }
+    });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Error fetching user bookings', error: err.message });
+  }
+};
+
+// Razorpay webhook handler
+exports.handlePaymentWebhook = async (req, res) => {
+  try {
+    const { order_id, payment_id, status } = req.body;
+    const order = await ServiceOrder.findOne({ razorpayOrderId: order_id });
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    order.razorpayPaymentId = payment_id;
+    order.paymentAt = new Date();
+
+    if (status === 'captured') {
+      order.status = 'processing';
+      order.statusHistory.push({ status: 'processing', changedAt: new Date(), reason: 'Payment captured' });
+    } else {
+      order.status = 'failed';
+      order.statusHistory.push({ status: 'failed', changedAt: new Date(), reason: `Payment status: ${status}` });
+    }
+
+    await order.save();
+    res.json({ success: true, message: 'Order status updated' });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Webhook error', error: err.message });
+  }
+};
+
 
 // 6️⃣ Legal Template Store Purchase
 exports.purchaseTemplate = async (req, res) => {
