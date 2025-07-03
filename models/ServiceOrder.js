@@ -16,7 +16,7 @@ const serviceOrderSchema = new mongoose.Schema({
   // Service Details
   serviceType: {
     type: String,
-    enum: ['document-download', 'legal-consultation', 'document-review', 'other'],
+    enum: ['document-download', 'legal-consultation', 'document-review', 'other', 'notary'],
     required: true
   },
   serviceName: {
@@ -25,8 +25,13 @@ const serviceOrderSchema = new mongoose.Schema({
   },
   documentType: {
     type: String,
-    enum: ['agreement', 'affidavit', 'complaint', 'contract', 'other'],
-    required: function () { return this.serviceType === 'document-download'; }
+    enum: ['agreement', 'affidavit', 'complaint', 'contract', 'general_affidavit',
+      'power_of_attorney',
+      'education_gap_affidavit',
+      'indemnity_bond',
+      'legal_heir_certificate',
+      'court_evidence_affidavit', 'other'],
+    required: true
   },
 
   // Payment Information
@@ -83,9 +88,10 @@ const serviceOrderSchema = new mongoose.Schema({
   // Delivery Information
   deliveryMethod: {
     type: String,
-    enum: ['email', 'download', 'both', 'none'],
-    default: 'download'
+    enum: ['download', 'email', 'courier'], // ✅ Add 'courier'
+    required: true
   },
+
   deliveryStatus: {
     type: String,
     enum: ['pending', 'sent', 'delivered', 'failed'],
@@ -104,6 +110,39 @@ const serviceOrderSchema = new mongoose.Schema({
     sparse: true
   },
   razorpaySignature: String,
+
+  // Notary Specific Fields
+  notaryType: {
+    type: String,
+    enum: ['digital', 'physical'],
+    required: function () { return this.serviceType === 'notary'; }
+  },
+  stampValue: {
+    type: Number,
+    min: 0,
+    required: function () { return this.serviceType === 'notary'; }
+  },
+  requiresRegistration: {
+    type: Boolean,
+    default: false
+  },
+  registrationFee: {
+    type: Number,
+    default: 0
+  },
+  documentDescription: String,
+  deliveryAddress: String,
+  specialInstructions: String,
+
+  // Notary Status Tracking
+  notaryStatus: {
+    type: String,
+    enum: ['pending', 'assigned', 'in-progress', 'completed', 'rejected'],
+    default: 'pending'
+  },
+  notaryAssignedAt: Date,
+  notaryCompletedAt: Date,
+  notaryId: String, // ID of assigned notary professional
 
   // Timestamps
   createdAt: {

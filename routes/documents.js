@@ -2,9 +2,8 @@ const express = require('express');
 const router = express.Router();
 const {
   generateAIAffidavit,
-  serveInstantDownload,
-  createNotaryRequest,
-  uploadNotaryScan,
+  createNotaryBooking,
+  updateNotaryStatus,
   createPriorityBooking,
   purchaseTemplate,
   generateAiPdf,
@@ -25,8 +24,12 @@ router.post('/ai-affidavit', verifyToken, generateAIAffidavit);
 router.get('/download', verifyToken, downloadDocument);
 
 // 3️⃣ Remote Notary Request
-router.post('/notary-request', verifyToken, createNotaryRequest);
-router.put('/notary-upload/:id', uploadNotaryScan); // Admin uploads notarized doc
+// Route to create a notary booking order
+router.post('/create-notary-booking', verifyToken, createNotaryBooking);
+
+// Admin route to update notary status
+router.post('/update-notary-status', verifyToken, updateNotaryStatus);
+
 
 // 4️⃣ Speed Booking (Priority Flag)
 router.post('/priority-booking', verifyToken, createPriorityBooking);

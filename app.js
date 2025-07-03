@@ -15,4 +15,6 @@ app.use(cors({
 app.use('/api/documents', documentRoutes);
 app.use('/api/payment', paymentRoutes);
 
+
+
 module.exports = app;

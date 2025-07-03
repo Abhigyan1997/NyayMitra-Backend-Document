@@ -1,9 +1,11 @@
 const ServiceOrder = require('../models/ServiceOrder');
 const sendEmail = require('../utils/sendEmail');
+const razorpay = require('../config/razorpay');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+
 
 // Razorpay Signature Verification
 const verifyPayment = (orderId, paymentId, signature) => {
@@ -124,32 +126,141 @@ exports.serveInstantDownload = async (req, res) => {
 };
 
 // 3️⃣ Notary Service
-exports.createNotaryRequest = async (req, res) => {
+// Create Notary Booking
+exports.createNotaryBooking = async (req, res) => {
   try {
-    const { formData, price, razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
-    const userId = req.user.id;
-    const userEmail = req.user.email;
-
-    if (!verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
-      return res.status(400).json({ error: 'Invalid payment signature' });
-    }
-
-    const newOrder = await ServiceOrder.create({
+    const {
       userId,
       userEmail,
-      serviceType: 'notary-service',
-      formData,
-      price,
-      status: 'processing',
-      deliveryMethod: formData.deliveryMethod
+      name,
+      phone,
+      documentType,
+      stampValue,
+      documentDescription,
+      deliveryAddress,
+      specialInstructions,
+      serviceType, // 'digital' or 'physical'
+      requiresRegistration
+    } = req.body;
+
+    if (!userId || !userEmail || !name || !phone || !documentType || !stampValue || !documentDescription) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const baseFee = serviceType === 'digital' ? 39900 : 79900; // in paise
+    const stampDuty = stampValue * 100;
+    const registrationFee = requiresRegistration ? 100000 : 0;
+    const totalAmount = baseFee + stampDuty + registrationFee;
+
+    const razorpayOrder = await razorpay.orders.create({
+      amount: totalAmount,
+      currency: 'INR',
+      receipt: `notary_${Date.now()}`,
+      notes: {
+        serviceType: 'notary',
+        notaryType: serviceType,
+        documentType,
+        customerName: name
+      }
     });
 
-    await sendEmail(userEmail, 'Notary Request Received', 'We are processing your notarized document.');
-    res.status(201).json({ message: 'Notary service requested', order: newOrder });
-  } catch (err) {
-    res.status(500).json({ error: 'Something went wrong' });
+    const notaryOrder = new ServiceOrder({
+      userId,
+      userEmail,
+      serviceType: 'notary',
+      serviceName: `${serviceType} notarization`,
+      documentType,
+      price: totalAmount / 100,
+      finalAmount: totalAmount / 100,
+      currency: 'INR',
+      status: 'pending',
+      deliveryMethod: serviceType === 'digital' ? 'email' : 'courier',
+      notaryType: serviceType,
+      stampValue,
+      requiresRegistration,
+      registrationFee: registrationFee / 100,
+      documentDescription,
+      deliveryAddress: serviceType === 'physical' ? deliveryAddress : undefined,
+      specialInstructions,
+      metadata: {
+        customerName: name,
+        customerPhone: phone
+      },
+      razorpayOrderId: razorpayOrder.id
+    });
+
+    await notaryOrder.save();
+
+    res.json({
+      success: true,
+      orderId: razorpayOrder.id,
+      serviceOrderId: notaryOrder._id,
+      amount: totalAmount,
+      currency: 'INR',
+      key: process.env.RAZORPAY_KEY
+    });
+  } catch (error) {
+    console.error('Notary booking error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create notary booking',
+      error: error.message
+    });
   }
 };
+
+// Update Notary Status
+exports.updateNotaryStatus = async (req, res) => {
+  try {
+    const { orderId, status, notaryId, rejectionReason } = req.body;
+
+    const order = await ServiceOrder.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const validTransitions = {
+      'pending': ['assigned', 'rejected'],
+      'assigned': ['in-progress', 'rejected'],
+      'in-progress': ['completed', 'rejected'],
+      'rejected': [],
+      'completed': []
+    };
+
+    if (!validTransitions[order.notaryStatus]?.includes(status)) {
+      return res.status(400).json({ message: "Invalid status transition" });
+    }
+
+    order.notaryStatus = status;
+
+    if (status === 'assigned') {
+      order.notaryId = notaryId;
+      order.notaryAssignedAt = new Date();
+    } else if (status === 'completed') {
+      order.notaryCompletedAt = new Date();
+      order.updateStatus('completed', 'Notarization completed');
+    } else if (status === 'rejected') {
+      order.updateStatus('failed', rejectionReason || 'Notarization rejected');
+    }
+
+    await order.save();
+
+    res.json({
+      success: true,
+      message: `Notary status updated to ${status}`,
+      order
+    });
+
+  } catch (error) {
+    console.error('Status update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update notary status',
+      error: error.message
+    });
+  }
+};
+
 
 // 4️⃣ Notary Scan Upload
 exports.uploadNotaryScan = async (req, res) => {
