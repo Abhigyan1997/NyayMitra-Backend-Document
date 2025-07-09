@@ -46,17 +46,19 @@ router.post('/create-order', async (req, res) => {
         res.status(500).json({ message: "Error creating order" });
     }
 });
+
+
 router.post('/verify', async (req, res) => {
     const {
         razorpay_order_id,
         razorpay_payment_id,
         razorpay_signature,
-        documentId, // this is ServiceOrder._id
+        documentId,
     } = req.body;
+
     if (!process.env.RAZORPAY_SECRET) {
         throw new Error("RAZORPAY_SECRET is not defined in environment variables");
     }
-
 
     try {
         const body = `${razorpay_order_id}|${razorpay_payment_id}`;
@@ -70,7 +72,9 @@ router.post('/verify', async (req, res) => {
         }
 
         const order = await ServiceOrder.findById(documentId);
-        if (!order) return res.status(404).json({ message: "Order not found" });
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
 
         order.razorpayPaymentId = razorpay_payment_id;
         order.razorpaySignature = razorpay_signature;
@@ -79,10 +83,10 @@ router.post('/verify', async (req, res) => {
 
         await order.save();
 
-        res.json({ message: "Payment verified successfully" });
+        res.json({ success: true, message: "Payment verified successfully" });
+
     } catch (err) {
-        console.error("Verification failed", err);
-        res.status(500).json({ message: "Verification failed" });
+        res.status(500).json({ message: "Verification failed", error: err.message });
     }
 });
 

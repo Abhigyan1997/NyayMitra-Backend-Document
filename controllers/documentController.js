@@ -17,6 +17,10 @@ const verifyPayment = (orderId, paymentId, signature) => {
   return expectedSignature === signature;
 };
 
+// const razorpay = new Razorpay({
+//   key_id: process.env.RAZORPAY_KEY_ID,
+//   key_secret: process.env.RAZORPAY_SECRET
+// });
 
 
 // controllers/documentController.js
@@ -307,6 +311,8 @@ exports.validatePriorityBooking = (req, res, next) => {
 // Create booking
 exports.createPriorityBooking = async (req, res) => {
   try {
+    // console.log("📥 Incoming priority booking request with body:", req.body);
+
     const {
       userId, userEmail, name, phone, issueType,
       preferredDate, preferredTime, description,
@@ -315,6 +321,7 @@ exports.createPriorityBooking = async (req, res) => {
 
     const basePrice = 99, priorityFee = 99;
     const totalAmount = basePrice + priorityFee;
+    // console.log("💰 Calculated totalAmount:", totalAmount);
 
     const newOrder = new ServiceOrder({
       userId,
@@ -349,8 +356,24 @@ exports.createPriorityBooking = async (req, res) => {
       userAgent
     });
 
+    // console.log("📦 Created new ServiceOrder object:", newOrder);
+
+    const shortReceipt = `rcpt_${Date.now()}`;
+    // console.log("🧾 Generated Razorpay receipt ID:", shortReceipt);
+
+    const razorpayOrder = await razorpay.orders.create({
+      amount: totalAmount * 100,
+      currency: "INR",
+      receipt: shortReceipt,
+      payment_capture: 1
+    });
+
+    // console.log("✅ Razorpay order created:", razorpayOrder);
+
+    newOrder.razorpayOrderId = razorpayOrder.id;
+
     const savedOrder = await newOrder.save();
-    const razorpayOrderId = `order_${uuidv4()}`;
+    // console.log("💾 Saved new order to DB:", savedOrder._id);
 
     res.status(201).json({
       success: true,
@@ -360,17 +383,23 @@ exports.createPriorityBooking = async (req, res) => {
         payment: {
           amount: totalAmount,
           currency: 'INR',
-          razorpayOrderId,
-          key: process.env.RAZORPAY_KEY_ID
+          razorpayOrderId: razorpayOrder.id,
+          key: process.env.RAZORPAY_KEY
         }
       }
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Failed to create booking', error: err.message });
+    console.error("❌ Create Booking Error:", err.message);
+    console.error(err.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create booking',
+      error: err.message
+    });
   }
 };
+
 
 // Get booking by ID
 exports.getPriorityBookingById = async (req, res) => {

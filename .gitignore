@@ -1,0 +1,11 @@
+# Ignore environment variable files
+.env
+
+# Ignore node modules
+node_modules/
+
+# Ignore lock files
+package-lock.json
+
+# Ignore metadata
+package.json

@@ -18,8 +18,8 @@ const {
 
 const verifyToken = require('../middleware/verifyToken');
 
-// 1️⃣ AI Affidavit Assistant
-router.post('/ai-affidavit', verifyToken, generateAIAffidavit);
+// // 1️⃣ AI Affidavit Assistant
+// router.post('/ai-affidavit', verifyToken, generateAIAffidavit);
 
 // 2️⃣ Self-Attested Instant Download
 router.get('/download', verifyToken, downloadDocument);
@@ -33,13 +33,13 @@ router.post('/update-notary-status', verifyToken, updateNotaryStatus);
 
 
 // 4️⃣ Speed Booking (Priority Flag)
-router.post('/priority-booking', verifyToken, createPriorityBooking);
+// router.post('/priority-booking', verifyToken, createPriorityBooking);
 
-// 5️⃣ Legal Template Store Purchase
-router.post('/template-store', verifyToken, purchaseTemplate);
+// // 5️⃣ Legal Template Store Purchase
+// router.post('/template-store', verifyToken, purchaseTemplate);
 
-// 6️⃣ AI PDF Generator (free-form)
-router.post('/ai-pdf', verifyToken, generateAiPdf);
+// // 6️⃣ AI PDF Generator (free-form)
+// router.post('/ai-pdf', verifyToken, generateAiPdf);
 
 // 🔍 Admin/User APIs
 router.get('/', getAllOrders); // Admin
