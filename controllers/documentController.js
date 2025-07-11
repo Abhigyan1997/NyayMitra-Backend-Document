@@ -1,11 +1,11 @@
 const ServiceOrder = require('../models/ServiceOrder');
 const sendEmail = require('../utils/sendEmail');
 const razorpay = require('../config/razorpay');
-const { v4: uuidv4 } = require('uuid');
 const PDFDocument = require('pdfkit');
-const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
 
 
 // Razorpay Signature Verification
@@ -16,15 +16,6 @@ const verifyPayment = (orderId, paymentId, signature) => {
     .digest('hex');
   return expectedSignature === signature;
 };
-
-// const razorpay = new Razorpay({
-//   key_id: process.env.RAZORPAY_KEY_ID,
-//   key_secret: process.env.RAZORPAY_SECRET
-// });
-
-
-// controllers/documentController.js
-
 
 exports.downloadDocument = async (req, res) => {
   const { documentId, userId } = req.query;
@@ -65,72 +56,6 @@ exports.downloadDocument = async (req, res) => {
   }
 };
 
-
-// 1️⃣ AI Affidavit Assistant
-exports.generateAIAffidavit = async (req, res) => {
-  try {
-    const { formData, price, razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
-    const userId = req.user.id;
-    const userEmail = req.user.email;
-
-    if (!verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
-      return res.status(400).json({ error: 'Invalid payment signature' });
-    }
-
-    const doc = new PDFDocument();
-    const filePath = path.join(__dirname, `../generated/affidavit_${Date.now()}.pdf`);
-    doc.pipe(fs.createWriteStream(filePath));
-    doc.fontSize(16).text(`AFFIDAVIT\n\nName: ${formData.name}\nFacts: ${formData.facts}\nAgainst: ${formData.against}\nLocation: ${formData.location}`);
-    doc.end();
-
-    const newOrder = await ServiceOrder.create({
-      userId,
-      userEmail,
-      serviceType: 'ai-affidavit',
-      formData,
-      price,
-      status: 'completed',
-      documentUrl: filePath
-    });
-
-    await sendEmail(userEmail, 'Your Affidavit is Ready', 'Please find attached affidavit.', [{ path: filePath }]);
-    res.status(201).json({ message: 'Affidavit generated', order: newOrder });
-  } catch (err) {
-    res.status(500).json({ error: 'Something went wrong' });
-  }
-};
-
-// 2️⃣ Self-Attested Instant Download
-exports.serveInstantDownload = async (req, res) => {
-  try {
-    const { formData, price, razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
-    const userId = req.user.id;
-    const userEmail = req.user.email;
-
-    if (!verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
-      return res.status(400).json({ error: 'Invalid payment signature' });
-    }
-
-    const templatePath = path.join(__dirname, '../templates/rent_agreement_template.pdf');
-
-    const newOrder = await ServiceOrder.create({
-      userId,
-      userEmail,
-      serviceType: 'self-attested',
-      formData,
-      price,
-      status: 'completed',
-      documentUrl: templatePath
-    });
-
-    await sendEmail(userEmail, 'Download Your Document', 'Here is your rent agreement.', [{ path: templatePath }]);
-    res.download(templatePath);
-  } catch (err) {
-    res.status(500).json({ error: 'Something went wrong' });
-  }
-};
-
-// 3️⃣ Notary Service
 // Create Notary Booking
 exports.createNotaryBooking = async (req, res) => {
   try {
@@ -265,33 +190,6 @@ exports.updateNotaryStatus = async (req, res) => {
     });
   }
 };
-
-
-// 4️⃣ Notary Scan Upload
-exports.uploadNotaryScan = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { documentUrl } = req.body;
-
-    const order = await ServiceOrder.findByIdAndUpdate(id, {
-      documentUrl,
-      status: 'completed',
-      deliveryDate: new Date()
-    }, { new: true });
-
-    if (order) {
-      await sendEmail(order.userEmail, 'Notarized Document Ready', 'Please find your notarized document.', [{ path: documentUrl }]);
-      res.json({ message: 'Notarized document uploaded', order });
-    } else {
-      res.status(404).json({ message: 'Order not found' });
-    }
-  } catch (err) {
-    res.status(500).json({ error: 'Something went wrong' });
-  }
-};
-
-// 5️⃣ Priority Booking
-
 
 // Middleware validation (exportable if needed elsewhere)
 exports.validatePriorityBooking = (req, res, next) => {
@@ -459,96 +357,8 @@ exports.getUserPriorityBookings = async (req, res) => {
   }
 };
 
-// Razorpay webhook handler
-exports.handlePaymentWebhook = async (req, res) => {
-  try {
-    const { order_id, payment_id, status } = req.body;
-    const order = await ServiceOrder.findOne({ razorpayOrderId: order_id });
-    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-
-    order.razorpayPaymentId = payment_id;
-    order.paymentAt = new Date();
-
-    if (status === 'captured') {
-      order.status = 'processing';
-      order.statusHistory.push({ status: 'processing', changedAt: new Date(), reason: 'Payment captured' });
-    } else {
-      order.status = 'failed';
-      order.statusHistory.push({ status: 'failed', changedAt: new Date(), reason: `Payment status: ${status}` });
-    }
-
-    await order.save();
-    res.json({ success: true, message: 'Order status updated' });
-
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Webhook error', error: err.message });
-  }
-};
 
 
-// 6️⃣ Legal Template Store Purchase
-exports.purchaseTemplate = async (req, res) => {
-  try {
-    const { formData, price, razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
-    const userId = req.user.id;
-    const userEmail = req.user.email;
-
-    if (!verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
-      return res.status(400).json({ error: 'Invalid payment signature' });
-    }
-
-    const filePath = path.join(__dirname, `../templates/${formData.templateId}.pdf`);
-
-    const newOrder = await ServiceOrder.create({
-      userId,
-      userEmail,
-      serviceType: 'template-store',
-      formData,
-      price,
-      status: 'completed',
-      documentUrl: filePath
-    });
-
-    await sendEmail(userEmail, 'Your Template Purchase', 'Here is your legal template.', [{ path: filePath }]);
-    res.download(filePath);
-  } catch (err) {
-    res.status(500).json({ error: 'Something went wrong' });
-  }
-};
-
-// 7️⃣ AI PDF Generator
-exports.generateAiPdf = async (req, res) => {
-  try {
-    const { formData, price, razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
-    const userId = req.user.id;
-    const userEmail = req.user.email;
-
-    if (!verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
-      return res.status(400).json({ error: 'Invalid payment signature' });
-    }
-
-    const doc = new PDFDocument();
-    const filePath = path.join(__dirname, `../generated/pdf_${Date.now()}.pdf`);
-    doc.pipe(fs.createWriteStream(filePath));
-    doc.fontSize(16).text(`Legal Document:\n\n${formData.prompt}`);
-    doc.end();
-
-    const newOrder = await ServiceOrder.create({
-      userId,
-      userEmail,
-      serviceType: 'ai-pdf-generator',
-      formData,
-      price,
-      status: 'completed',
-      documentUrl: filePath
-    });
-
-    await sendEmail(userEmail, 'AI Generated PDF', 'Your AI document is ready.', [{ path: filePath }]);
-    res.status(201).json({ message: 'PDF created', order: newOrder });
-  } catch (err) {
-    res.status(500).json({ error: 'Something went wrong' });
-  }
-};
 
 // 🔍 Get Orders
 exports.getAllOrders = async (req, res) => {
@@ -573,4 +383,179 @@ exports.updateOrderStatus = async (req, res) => {
   const order = await ServiceOrder.findByIdAndUpdate(orderId, update, { new: true });
   if (!order) return res.status(404).json({ message: 'Order not found' });
   res.json(order);
+};
+
+
+// Document Review Controller Methods
+exports.submitDocumentReview = async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      phone,
+      documentType,
+      documentPurpose,
+      specificQuestions,
+      urgency
+    } = req.body;
+
+    // Validate required fields
+    if (!req.file) {
+      return res.status(400).json({ error: 'Document file is required' });
+    }
+
+    // Validate document type against enum values
+    const validDocumentTypes = [
+      'agreement', 'affidavit', 'complaint', 'contract',
+      'power_of_attorney', 'education_gap_affidavit',
+      'indemnity_bond', 'legal_heir_certificate',
+      'court_evidence_affidavit', 'other',
+      'rent_agreement', 'bussiness_agreement',
+      'legal_notice', 'will_testament'
+    ];
+
+    if (!validDocumentTypes.includes(documentType)) {
+      return res.status(400).json({
+        error: 'Invalid document type',
+        validTypes: validDocumentTypes
+      });
+    }
+
+    // Calculate price based on urgency
+    const urgencyPrices = {
+      '24': 999,
+      '48': 799,
+      '72': 599,
+      '168': 499
+    };
+
+    const price = urgencyPrices[urgency] || 499;
+
+    // Create order with all required fields
+    const order = new ServiceOrder({
+      userId: req.user.id,
+      userEmail: email,
+      userName: name,
+      userPhone: phone,
+      serviceType: 'document-review',
+      serviceName: 'Document Review',
+      documentType,
+      price,
+      finalAmount: price,
+      currency: 'INR',
+      status: 'pending',
+      deliveryMethod: 'email',
+      documentUrl: `/uploads/documents/${req.file.filename}`,
+      metadata: {
+        documentPurpose,
+        specificQuestions,
+        urgencyHours: parseInt(urgency),
+        originalFilename: req.file.originalname
+      },
+      // Additional fields for tracking
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
+    await order.save();
+
+    res.status(201).json({
+      success: true,
+      orderId: order._id,
+      estimatedCompletion: new Date(Date.now() + parseInt(urgency) * 60 * 60 * 1000).toISOString(),
+      amount: price,
+      currency: 'INR'
+    });
+
+  } catch (error) {
+    console.error('Document review submission error:', error);
+
+    // Handle specific mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: errors
+      });
+    }
+
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+};
+
+exports.getDocumentReview = async (req, res) => {
+  try {
+    const order = await ServiceOrder.findOne({
+      _id: req.params.orderId,
+      serviceType: 'document-review'
+    });
+
+    if (!order) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    // Check if user is authorized to view this review
+    if (order.userId !== req.user.id && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    res.json(order);
+
+  } catch (error) {
+    console.error('Get document review error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.updateReviewStatus = async (req, res) => {
+  try {
+    const { status, feedback, reviewedDocumentUrl } = req.body;
+
+    const order = await ServiceOrder.findOneAndUpdate(
+      {
+        _id: req.params.orderId,
+        serviceType: 'document-review'
+      },
+      {
+        status,
+        'metadata.feedback': feedback,
+        'metadata.reviewedDocumentUrl': reviewedDocumentUrl,
+        $push: {
+          statusHistory: {
+            status: status,
+            changedAt: new Date(),
+            reason: 'Status updated by admin'
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    res.json(order);
+
+  } catch (error) {
+    console.error('Update review status error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.getUserDocumentReviews = async (req, res) => {
+  try {
+    const reviews = await ServiceOrder.find({
+      userId: req.params.userId,
+      serviceType: 'document-review'
+    }).sort({ createdAt: -1 });
+
+    res.json(reviews);
+  } catch (error) {
+    console.error('Get user document reviews error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 };

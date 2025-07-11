@@ -13,10 +13,27 @@ const serviceOrderSchema = new mongoose.Schema({
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
   },
 
+  userName: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: [100, 'Username cannot exceed 100 characters']
+  },
+  userPhone: {
+    type: String,
+    required: true,
+    validate: {
+      validator: function (v) {
+        return /^[0-9]{10,15}$/.test(v); // Basic phone number validation
+      },
+      message: props => `${props.value} is not a valid phone number!`
+    }
+  },
+
   // Service Details
   serviceType: {
     type: String,
-    enum: ['document-download', 'legal-consultation', 'document-review', 'other', 'notary'],
+    enum: ['document-download', 'legal-consultation', 'document-review', 'other', 'priority-booking', 'notary'],
     required: true
   },
   serviceName: {
@@ -25,12 +42,13 @@ const serviceOrderSchema = new mongoose.Schema({
   },
   documentType: {
     type: String,
-    enum: ['agreement', 'affidavit', 'complaint', 'contract', 'general_affidavit',
+    enum: ['agreement', 'affidavit', 'complaint', 'contract',
       'power_of_attorney',
       'education_gap_affidavit',
       'indemnity_bond',
       'legal_heir_certificate',
-      'court_evidence_affidavit', 'other'],
+      'court_evidence_affidavit', 'other',
+      'rent_agreement', 'bussiness_agreement', 'legal_notice', 'will_testament'],
     required: true
   },
 
@@ -67,13 +85,15 @@ const serviceOrderSchema = new mongoose.Schema({
   }],
 
   // Document Information
+  // In your model
   documentUrl: {
     type: String,
     validate: {
       validator: function (v) {
-        return /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/.test(v);
+        // Accept both URLs and local paths
+        return /^(https?:\/\/|\/)/.test(v);
       },
-      message: props => `${props.value} is not a valid URL!`
+      message: props => `${props.value} is not a valid URL or path!`
     }
   },
   documentVersion: {
